@@ -36,18 +36,27 @@ type AtomixStore struct {
 
 func NewDistributedStore() *AtomixStore {
 	minIdCounter, err := atomix.Counter("minId").Get(context.Background())
-	defer minIdCounter.Close(context.Background())
 	if err != nil {
 		fmt.Println(err)
 		return nil
 	}
+	defer func() {
+		err := minIdCounter.Close(context.Background())
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	maxIdCounter, err := atomix.Counter("maxId").Get(context.Background())
-	defer maxIdCounter.Close(context.Background())
 	if err != nil {
 		fmt.Println(err)
 		return nil
 	}
+	defer func() {
+		if err := maxIdCounter.Close(context.Background()); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	err = minIdCounter.Set(context.Background(), 0)
 	if err != nil {
@@ -104,7 +113,7 @@ func (store *AtomixStore) getMinMaxIds() (int64, int64) {
 	return minId, maxId
 }
 
-func (store *AtomixStore) Read(tuple Tuple) opt.Maybe[Tuple] {
+func (store *AtomixStore) Read(query Tuple) opt.Maybe[Tuple] {
 	minId, maxId := store.getMinMaxIds()
 
 	if minId == -1 || maxId == -1 {
@@ -135,11 +144,12 @@ func (store *AtomixStore) Read(tuple Tuple) opt.Maybe[Tuple] {
 
 		tuple := DecodeTuple(tupleValue)
 		fmt.Printf("[Read] Read tuple: %v\n", tuple)
-		if tuple.IsMatching(tuple) {
+		if tuple.IsMatching(query) {
 			return opt.NewJust(tuple)
 		}
 	}
 
+	fmt.Printf("[Read] No tuple found for query: %v\n", query)
 	return opt.NewNothing[Tuple]()
 }
 
@@ -170,9 +180,7 @@ func (store *AtomixStore) Get(query Tuple) opt.Maybe[Tuple] {
 			return opt.NewNothing[Tuple]()
 		}
 
-		var tupleValue []byte = mapEntry.Value
-
-		tuple := DecodeTuple(tupleValue)
+		tuple := DecodeTuple(mapEntry.Value)
 		fmt.Printf("[Get] Read tuple: %v\n", tuple)
 		if tuple.IsMatching(query) {
 			_, err := tuples.Remove(context.Background(), i, _map.IfVersion(mapEntry.Version))
