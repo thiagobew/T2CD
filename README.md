@@ -4,7 +4,7 @@ Distributed fault-tolerant tuple space implementation written in Go for the INE5
 
 ## Pre-requisites
 
-Install Golang (version >= 1.19):
+### Install Golang (version >= 1.19):
 - Download the desired version for your OS/architecture from [Golang Downloads](https://golang.org/dl/)
 - Decompress and install (Linux):
 
@@ -22,6 +22,12 @@ $ source ~/.profile
 - Logout for the changes to take effect
 
 **Note**: if there's a previously install Go version (i. e. using your distro's package manager) that doesn't fit the requirements, uninstall it, otherwise your enviroment will likely prefer that version over the manually installed one
+
+### Install Atomix
+- Install Go client
+```
+$ GO111MODULE=on go get github.com/atomix/go-sdk
+```
 
 ## Before running 
 
