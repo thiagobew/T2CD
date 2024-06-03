@@ -13,7 +13,7 @@ type Space struct {
 
 // Create a new space instance that uses the default store implementation `SimpleStore`
 func NewSpace() *Space {
-	return &Space{store: NewSimpleStore()}
+	return &Space{store: NewDistributedStore()}
 }
 
 // Create a new space that uses the given store implementation
@@ -24,10 +24,10 @@ func MakeSpace(store Store) *Space {
 // Retrieve a tuple that matches the query from the space and remove it.
 // The tuple may contain wildcards. If it does and matches multiple tuples in the space, then an
 // arbitrary match will be returned as a result.
-func (s *Space) In(query Tuple) <-chan opt.Maybe[Tuple] {
+func (s *Space) Get(query Tuple) <-chan opt.Maybe[Tuple] {
 	c := make(chan opt.Maybe[Tuple])
 	go func() {
-		c <- s.store.In(query)
+		c <- s.store.Get(query)
 	}()
 	return c
 }
@@ -46,10 +46,10 @@ func (s *Space) Read(query Tuple) <-chan opt.Maybe[Tuple] {
 // Insert a tuple into the tuple space.
 // The tuple must be defined, i.e.: NOT contain any wildcards or `None`, otherwise it will not be
 // inserted.
-func (s *Space) Out(query Tuple) <-chan bool {
+func (s *Space) Write(query Tuple) <-chan bool {
 	c := make(chan bool)
 	go func() {
-		c <- s.store.Out(query)
+		c <- s.store.Write(query)
 	}()
 	return c
 }

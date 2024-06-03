@@ -27,6 +27,7 @@ $ source ~/.profile
 - Install Go client
 ```
 $ GO111MODULE=on go get github.com/atomix/go-sdk
+$ go get github.com/atomix/go-sdk/pkg/atomix
 ```
 
 ## Before running 

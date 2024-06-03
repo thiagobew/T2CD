@@ -22,20 +22,22 @@ func main() {
 		return
 	}
 
-	// Encode and decode the tuple
+	space := ts.NewSpace()
+
+	// Write the tuple to the tuple space
 	for _, tuple := range tuples {
-		fmt.Printf("Parsed tuple: %v\n", tuple)
-		encoded := ts.EncodeTuple(tuple)
-		decoded := ts.DecodeTuple(encoded)
+		space.Write(tuple)
+	}
 
-		// Print the original tuple
-		fmt.Printf("Original tuple: %v\n", tuple)
-
-		// Print the encoded tuple
-		fmt.Printf("Encoded tuple: %v\n", encoded)
-
-		// Print the decoded tuple
-		fmt.Printf("Decoded tuple: %v\n", decoded)
+	// Read the tuple from the tuple space
+	for _, tuple := range tuples {
+		fmt.Println("Reading tuple: ", tuple)
+		result := <-space.Read(tuple)
+		if result.IsPresent() {
+			fmt.Println("Result: ", result.Get())
+		} else {
+			fmt.Println("No result found")
+		}
 	}
 
 }
