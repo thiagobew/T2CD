@@ -1,6 +1,7 @@
-package gotupolis
+package tuplespace
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math"
 	"strings"
@@ -11,7 +12,7 @@ const (
 	FLOATPRECISION float64 = 0.0000001
 )
 
-type TupleElement uint
+type TupleElement uint8
 
 const (
 	// INT indicates 32bit-integers.
@@ -343,4 +344,92 @@ func (t Tuple) order(other Tuple) int {
 // Returns `true` if t1 is considered _less than_ t2, `false` otherwise.
 func TupleOrder(t1, t2 Tuple) bool {
 	return t1.order(t2) == LT
+}
+
+func float64frombytes(bytes []byte) float64 {
+	bits := binary.LittleEndian.Uint64(bytes)
+	float := math.Float64frombits(bits)
+	return float
+}
+
+func float64bytes(float float64) []byte {
+	bits := math.Float64bits(float)
+	bytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bytes, bits)
+	return bytes
+}
+
+// Encode type and value of each element into a byte slice.
+// Doesn't support nested tuples yet.
+func EncodeTuple(t Tuple) []byte {
+	var result []byte
+	for _, e := range t.elements {
+		switch e.GetType() {
+		case INT:
+			var intVal int = e.GetValue().(int)
+			var varType byte = byte(INT)
+			var toBytes []byte = make([]byte, 4)
+			binary.LittleEndian.PutUint32(toBytes, uint32(intVal))
+			var bytes []byte = append([]byte{varType}, toBytes...)
+			result = append(result, bytes...)
+		case FLOAT:
+			var floatVal float64 = e.GetValue().(float64)
+			var varType byte = byte(FLOAT)
+			toBytes := float64bytes(floatVal)
+			var bytes []byte = append([]byte{varType}, toBytes...)
+			result = append(result, bytes...)
+		case STRING:
+			var str string = e.GetValue().(string)
+			var len int = len(str)
+			var varType byte = byte(STRING)
+			var bytes []byte = append([]byte{varType, byte(len)}, []byte(str)...)
+			result = append(result, bytes...)
+		case ANY:
+			result = append(result, byte(ANY))
+		case NONE:
+			result = append(result, byte(NONE))
+		}
+	}
+
+	return result
+}
+
+// Decode a byte slice into a tuple.
+func DecodeTuple(data []byte) Tuple {
+	var resultTuple Tuple
+	var elemList []Elem
+	var elemType TupleElement
+	var elemLen int
+	var elemValue interface{}
+
+	fmt.Printf("Len of data: %v\n", len(data))
+	for i := 0; i < len(data); {
+		elemType = TupleElement(data[i])
+		switch elemType {
+		case INT:
+			elemLen = 4
+			elemValue = int(binary.LittleEndian.Uint32(data[i+1 : i+1+elemLen]))
+			fmt.Printf("decoded int: %v with len %v\n", elemValue, elemLen)
+			elemList = append(elemList, Elem{elemType, elemValue})
+			i += elemLen + 1
+		case FLOAT:
+			elemLen := 8
+			elemValue := float64frombytes(data[i+1 : i+1+elemLen])
+			elemList = append(elemList, Elem{elemType, elemValue})
+			i += elemLen + 1
+		case STRING:
+			elemLen = int(data[i+1])
+			elemValue = string(data[i+2 : i+2+elemLen])
+			elemList = append(elemList, Elem{elemType, elemValue})
+			i += elemLen + 2
+		case ANY:
+			elemList = append(elemList, Elem{elemType, nil})
+			i++
+		case NONE:
+			elemList = append(elemList, Elem{elemType, nil})
+			i++
+		}
+	}
+	resultTuple.elements = elemList
+	return resultTuple
 }

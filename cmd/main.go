@@ -7,7 +7,6 @@ import (
 )
 
 func main() {
-	space := ts.NewSpace()
 
 	// Read a string from the command line
 	var input string
@@ -23,16 +22,20 @@ func main() {
 		return
 	}
 
+	// Encode and decode the tuple
 	for _, tuple := range tuples {
-		// Insert the tuple into the tuple space
-		<-space.Out(tuple)
-	}
+		fmt.Printf("Parsed tuple: %v\n", tuple)
+		encoded := ts.EncodeTuple(tuple)
+		decoded := ts.DecodeTuple(encoded)
 
-	for _, tuple := range tuples {
-		// Retrieve the tuple from the tuple space
-		recv := <-space.In(tuple)
-		// Print the tuple
-		fmt.Println(recv)
+		// Print the original tuple
+		fmt.Printf("Original tuple: %v\n", tuple)
+
+		// Print the encoded tuple
+		fmt.Printf("Encoded tuple: %v\n", encoded)
+
+		// Print the decoded tuple
+		fmt.Printf("Decoded tuple: %v\n", decoded)
 	}
 
 }
