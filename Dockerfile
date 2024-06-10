@@ -25,4 +25,4 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o ./docker-tuple-space ./cmd/main.go
 EXPOSE 8080
 
 # Run
-CMD ["/docker-tuple-space"]
+CMD ["./docker-tuple-space"]
