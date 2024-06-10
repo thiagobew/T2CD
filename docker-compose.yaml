@@ -1,0 +1,11 @@
+services:
+  docker-tuple-space:
+    image: docker-tuple-space
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: docker-tuple-space
+    working_dir: /app
+    ports:
+      - "8080:8080"
+    command: ["./docker-tuple-space"]
