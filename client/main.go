@@ -64,7 +64,7 @@ func main() {
 		}
 		conn.Close()
 
-		newPort, err := strconv.Atoi(strings.TrimSpace(string(portBuf[:])))
+		newPort, err := strconv.Atoi(strings.TrimSpace(string(portBuf[:len(portBuf)-1])))
 		if err != nil {
 			fmt.Println("Invalid port received:", err)
 			continue
