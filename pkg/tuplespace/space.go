@@ -13,7 +13,8 @@ type Space struct {
 
 // Create a new space instance that uses the default store implementation `SimpleStore`
 func NewSpace() *Space {
-	return &Space{store: NewDistributedStore()}
+	// Use btree as the default store
+	return &Space{store: NewSimpleStore()}
 }
 
 // Create a new space that uses the given store implementation

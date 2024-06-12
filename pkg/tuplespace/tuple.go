@@ -282,6 +282,11 @@ func MakeTuple(element ...Elem) Tuple {
 	return resultTuple
 }
 
+// Get the elements of the tuple
+func (t Tuple) GetElements() []Elem {
+	return t.elements
+}
+
 // Returns true if the tuple does not contain any wildcards or none fields
 func (t Tuple) IsDefined() bool {
 	for _, v := range t.elements {
