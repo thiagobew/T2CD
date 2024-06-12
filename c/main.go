@@ -98,3 +98,9 @@ func main() {
 		fmt.Println("Response:", resp)
 	}
 }
+
+// Example usage of the client once everything is running:
+// Enter command: 1234 pass create
+// Enter command: 1234 pass deposit 100
+// Enter command: 1234 pass withdraw 50
+// Enter command: 1234 pass delete
