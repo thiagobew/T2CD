@@ -4,8 +4,6 @@ import (
 	opt "github.com/micutio/goptional"
 )
 
-// TODO: Refer to https://github.com/sgjp/go-tuplespace for inspiration
-
 // The Space contains the actual store and handles concurrent read and write access to it.
 type Space struct {
 	store Store

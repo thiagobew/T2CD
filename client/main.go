@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
+	"time"
 )
 
 type Request struct {
@@ -18,10 +18,27 @@ type Request struct {
 	RequisitionData string
 }
 
+type JSONConnectionInfo struct {
+	MesType  string `json:"type"`
+	NodeAddr string `json:"addr"`
+	NodeID   string `json:"id"`
+}
+
+func printCommands() {
+	fmt.Println("Commands:")
+	fmt.Println("  <bankAccount> <password> create")
+	fmt.Println("  <bankAccount> <password> deposit <amount>")
+	fmt.Println("  <bankAccount> <password> withdraw <amount>")
+	fmt.Println("  <bankAccount> <password> delete")
+	fmt.Println("  <bankAccount> <password> balance")
+}
+
 func main() {
 	reader := bufio.NewReader(os.Stdin)
+	var serverPort uint16 = 11000
 
 	for {
+		printCommands()
 		fmt.Print("Enter command: ")
 		cmd, _ := reader.ReadString('\n')
 		cmd = strings.TrimSpace(cmd)
@@ -48,14 +65,40 @@ func main() {
 		}
 
 		// Connect to the server on the initial port
-		conn, err := net.Dial("tcp", "localhost:1235")
-		if err != nil {
-			fmt.Println("Error connecting to server:", err)
-			continue
+		var conn net.Conn
+		var err error
+		for {
+			for i := 0; i < 5; i++ {
+				conn, err = net.Dial("tcp", fmt.Sprintf("localhost:%d", serverPort))
+				if err == nil {
+					break
+				}
+				fmt.Println("Error connecting to server:", err)
+				time.Sleep(1 * time.Second)
+			}
+			if err == nil {
+				break
+			}
+
+			serverPort += 100
 		}
 
+		// Write to the server to inform a request
+		info := JSONConnectionInfo{
+			MesType:  "request",
+			NodeAddr: "",
+			NodeID:   "",
+		}
+		b, err := json.Marshal(info)
+		if err != nil {
+			fmt.Println("Error encoding JSON:", err)
+			conn.Close()
+			continue
+		}
+		conn.Write(b)
+
 		// Read the new port from the server
-		var portBuf [5]byte
+		var portBuf [2]byte
 		_, err = conn.Read(portBuf[:])
 		if err != nil {
 			fmt.Println("Error reading new port:", err)
@@ -64,17 +107,17 @@ func main() {
 		}
 		conn.Close()
 
-		newPort, err := strconv.Atoi(strings.TrimSpace(string(portBuf[:len(portBuf)-1])))
-		if err != nil {
-			fmt.Println("Invalid port received:", err)
-			continue
-		}
+		var newPort uint16 = uint16(portBuf[1])<<8 | uint16(portBuf[0])
 
 		// Connect to the server on the new port
-		newConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", newPort))
-		if err != nil {
-			fmt.Println("Error connecting to server on new port:", err)
-			continue
+		var newConn net.Conn
+		for {
+			newConn, err = net.Dial("tcp", fmt.Sprintf("localhost:%d", newPort))
+			fmt.Printf("Connecting to localhost:%d\n", newPort)
+			if err == nil {
+				break
+			}
+			time.Sleep(300 * time.Millisecond)
 		}
 
 		// Send the request

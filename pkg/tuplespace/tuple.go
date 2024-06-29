@@ -2,6 +2,7 @@ package tuplespace
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -437,4 +438,74 @@ func DecodeTuple(data []byte) Tuple {
 	}
 	resultTuple.elements = elemList
 	return resultTuple
+}
+
+/* func (t Tuple) MarshalJSON() ([]byte, error) {
+	var elements []map[string]interface{}
+	for _, e := range t.elements {
+		value := e.elemValue
+
+		switch e.elemType {
+		case INT:
+			value = strconv.Itoa(e.elemValue.(int))
+		case FLOAT:
+			value = strconv.FormatFloat(e.elemValue.(float64), 'f', -1, 64)
+		case STRING:
+			value = e.elemValue.(string)
+		case ANY:
+			value = "_"
+		case NONE:
+			value = "nil"
+		}
+
+		elem := map[string]interface{}{
+			"type":  e.elemType,
+			"value": value,
+		}
+		elements = append(elements, elem)
+	}
+	return json.Marshal(elements)
+} */
+
+func (el Elem) MarshalJSON() ([]byte, error) {
+	value := el.elemValue
+
+	switch el.elemType {
+	case INT:
+		//value = strconv.Itoa(el.elemValue.(int))
+		value = el.elemValue.(int)
+	case FLOAT:
+		//value = strconv.FormatFloat(el.elemValue.(float64), 'f', -1, 64)
+		value = el.elemValue.(float64)
+	case STRING:
+		value = el.elemValue.(string)
+	case ANY:
+		value = "_"
+	}
+
+	elem := map[string]interface{}{
+		"type":  el.elemType,
+		"value": value,
+	}
+	return json.Marshal(elem)
+}
+
+func (el *Elem) UnmarshalJSON(data []byte) error {
+	var elem map[string]interface{}
+	if err := json.Unmarshal(data, &elem); err != nil {
+		return err
+	}
+
+	switch TupleElement(elem["type"].(float64)) {
+	case INT:
+		*el = I(int(elem["value"].(float64)))
+	case FLOAT:
+		*el = F(elem["value"].(float64))
+	case STRING:
+		*el = S(elem["value"].(string))
+	case ANY:
+		*el = Any()
+	}
+
+	return nil
 }

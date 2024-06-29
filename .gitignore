@@ -7,7 +7,7 @@
 *.dll
 *.so
 *.dylib
-docker-tuple-space
+cmd/main
 
 # Test binary, built with `go test -c`
 *.test
@@ -21,3 +21,5 @@ docker-tuple-space
 # Go workspace file
 go.work
 go.work.sum
+
+nodes/node*/
