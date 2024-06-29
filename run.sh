@@ -6,7 +6,7 @@ touch nodes/.gitkeep
 pids=()
 
 # Run the programs in a loop
-for ((i=0; i<N; i++)); do
+for ((i=0; i < $NODES; i++)); do
   haddr=$(($START_SERVER_PORT+i*100))
   raddr=$(($START_RAFT_PORT+i))
 

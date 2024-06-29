@@ -26,13 +26,25 @@ $ source ~/.profile
 ### 
 ## Before running 
 
-Get dependencies with (run at project directory):
+- Get dependencies with (run at project directory):
 ```
 $ go mod tidy
 ```
+- Run any `go get <url>` recommended by the command
+
+- Execute setup script
+```
+$ chmod +x setup.sh
+$ ./setup.sh
+``` 
 
 ## Run
-To compile and run, execute:
+- To start the service:
 ```
-go run cmd/main.go
+$ ./run.sh
+```
+
+- To run client and test the application:
+```
+$ ./bin/client
 ```
