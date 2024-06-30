@@ -273,8 +273,18 @@ func worker(space *store.Store) {
 				fmt.Printf("Wrote response, Error: %v\n", err)
 
 			case "delete":
-				space.Get(ts.MakeTuple(ts.S(bankAccount), ts.S(password), ts.Any()))
-				space.Write(ts.MakeTuple(ts.S("RES"), ts.S(bankAccount), ts.S("Account deleted")))
+				tuple, err := space.Get(ts.MakeTuple(ts.S(bankAccount), ts.S(password), ts.Any()))
+
+				if err != nil {
+					fmt.Println("Error getting tuple:", err)
+					continue
+				}
+
+				if tuple.IsPresent() {
+					space.Write(ts.MakeTuple(ts.S("RES"), ts.S(bankAccount), ts.S("Account deleted")))
+				} else {
+					space.Write(ts.MakeTuple(ts.S("RES"), ts.S(bankAccount), ts.S("Account not found")))
+				}
 
 			case "deposit":
 				tuple, err := space.Get(ts.MakeTuple(ts.S(bankAccount), ts.S(password), ts.Any()))
@@ -327,7 +337,10 @@ func worker(space *store.Store) {
 				} else {
 					space.Write(ts.MakeTuple(ts.S("RES"), ts.S(bankAccount), ts.S("Account not found")))
 				}
+			default:
+				space.Write(ts.MakeTuple(ts.S("RES"), ts.S(bankAccount), ts.S("Invalid operation!")))
 			}
+
 		}
 		time.Sleep(1 * time.Second) // Sleep for a second
 	}
