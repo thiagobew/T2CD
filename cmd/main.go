@@ -308,6 +308,7 @@ func worker(space *store.Store) {
 						space.Write(ts.MakeTuple(ts.S(bankAccount), ts.S(password), ts.I(money-withdrawAmount)))
 						space.Write(ts.MakeTuple(ts.S("RES"), ts.S(bankAccount), ts.S("Withdrawal successful")))
 					} else {
+						space.Write(ts.MakeTuple(ts.S(bankAccount), ts.S(password), ts.I(money)))
 						space.Write(ts.MakeTuple(ts.S("RES"), ts.S(bankAccount), ts.S("Insufficient funds")))
 					}
 				} else {
