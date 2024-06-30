@@ -33,8 +33,10 @@ func printCommands() {
 	fmt.Println("  <bankAccount> <password> balance")
 }
 
+// TODO: refactor connect logic into a function
 func main() {
 	reader := bufio.NewReader(os.Stdin)
+	// TODO: get start port and address from command line
 	var serverPort uint16 = 11000
 
 	for {
@@ -98,6 +100,10 @@ func main() {
 		conn.Write(b)
 
 		// Read the new port from the server
+		// TODO: implement with JSON like { "port": uint16, "addr": string, "leader": bool }
+		// If leader is true, then the client can send the request to the server
+		// If leader is false, then the client must repeat the connection process with the leader
+		// TODO: treat case when there's no leader (sleep with exponential backoff and retry?)
 		var portBuf [2]byte
 		_, err = conn.Read(portBuf[:])
 		if err != nil {
@@ -138,6 +144,9 @@ func main() {
 		}
 
 		newConn.Close()
+
+		// TODO: check if response didn't return an error
+		// If it did, get leader address, connect to him, and repeat the request
 		fmt.Println("Response:", resp)
 	}
 }

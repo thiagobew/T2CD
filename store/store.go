@@ -208,6 +208,11 @@ func (s *Store) Join(nodeID, addr string) error {
 	return nil
 }
 
+func (s *Store) GetLeaderAddr() string {
+	addr, _ := s.raft.LeaderWithID()
+	return string(addr)
+}
+
 type fsm Store
 
 // Apply applies a Raft log entry to the tuple space store.

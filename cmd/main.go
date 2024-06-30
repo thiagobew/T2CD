@@ -317,6 +317,12 @@ func handleClient(space *store.Store, basePortCtl *basePortControl, basePort uin
 	}
 	defer conn.Close()
 
+	defer func() {
+		basePortCtl.mutex.Lock()
+		basePortCtl.basePort--
+		basePortCtl.mutex.Unlock()
+	}()
+
 	var req Request
 	err = json.NewDecoder(conn).Decode(&req)
 	if err != nil {
@@ -330,6 +336,7 @@ func handleClient(space *store.Store, basePortCtl *basePortControl, basePort uin
 	tuple := ts.MakeTuple(ts.S("REQ"), ts.S(req.BankAccount), ts.S(req.Password), ts.S(req.Requisition), ts.S(req.RequisitionData))
 	fmt.Printf("Writing tuple: %v\n", tuple)
 
+	// TODO: If error, return leader address to client
 	space.Write(tuple)
 
 	var resp goptional.Maybe[ts.Tuple]
@@ -363,7 +370,4 @@ func handleClient(space *store.Store, basePortCtl *basePortControl, basePort uin
 	}
 
 	fmt.Printf("Sent response: %s\n", resp)
-	basePortCtl.mutex.Lock()
-	basePortCtl.basePort--
-	basePortCtl.mutex.Unlock()
 }
