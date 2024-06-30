@@ -11,7 +11,7 @@ for ((i=0; i < $NODES; i++)); do
   raddr=$(($START_RAFT_PORT+i))
 
   if [ $i -ne 0 ]; then
-    ./bin/main -haddr "localhost:$haddr" -raddr "localhost:$raddr" -id node$i -join "$LEADER_IP:$startHaddr" ./nodes/node$i &
+    ./bin/main -haddr "localhost:$haddr" -raddr "localhost:$raddr" -id node$i -join "$LEADER_IP:$START_RAFT_PORT" ./nodes/node$i &
   else
     ./bin/main -haddr "localhost:$haddr" -raddr "localhost:$raddr" -id node$i ./nodes/node$i &
     sleep 2 # wait for the first node to start

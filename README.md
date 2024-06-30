@@ -23,7 +23,6 @@ $ source ~/.profile
 
 **Note**: if there's a previously install Go version (i. e. using your distro's package manager) that doesn't fit the requirements, uninstall it, otherwise your enviroment will likely prefer that version over the manually installed one
 
-### 
 ## Before running 
 
 - Get dependencies with (run at project directory):
@@ -35,7 +34,7 @@ $ go mod tidy
 - Execute setup script
 ```
 $ chmod +x setup.sh
-$ ./setup.sh
+$ source setup.sh
 ``` 
 
 ## Run
