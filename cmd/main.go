@@ -132,7 +132,7 @@ func startServer(space *store.Store, address string) {
 	}
 	defer listener.Close()
 
-	fmt.Println("Server started on %s", address)
+	fmt.Printf("Server started on %s\n", address)
 
 	var basePort uint16
 	parts := strings.Split(address, ":")
@@ -151,6 +151,7 @@ func startServer(space *store.Store, address string) {
 	basePortControl := &basePortControl{basePort: basePort}
 
 	go worker(space)
+	go worker(space)
 
 	for {
 		conn, err := listener.Accept()
@@ -158,7 +159,6 @@ func startServer(space *store.Store, address string) {
 			fmt.Println("Error accepting connection:", err)
 			continue
 		}
-		go handleClient(space, basePortControl, basePortControl.basePort)
 
 		fmt.Println("Received connection from", conn.RemoteAddr())
 
@@ -185,6 +185,37 @@ func startServer(space *store.Store, address string) {
 			conn.Close()
 			continue
 		}
+
+		if info.MesType == "request" {
+			isLeader := space.IsLeader()
+
+			var response map[string]interface{}
+			if isLeader {
+				response = map[string]interface{}{
+					"addr":   address,
+					"leader": true,
+				}
+			} else {
+				response = map[string]interface{}{
+					"addr":   space.GetLeaderAddr(),
+					"leader": false,
+				}
+			}
+
+			err = json.NewEncoder(conn).Encode(response)
+			if err != nil {
+				fmt.Println("Error encoding response:", err)
+				conn.Close()
+				continue
+			}
+
+			if !isLeader {
+				conn.Close()
+				continue
+			}
+		}
+
+		go handleClient(space, basePortControl, basePortControl.basePort)
 
 		// Send the new port to the client
 		fmt.Printf("Sending new port to client: %d\n", basePort)
@@ -323,51 +354,52 @@ func handleClient(space *store.Store, basePortCtl *basePortControl, basePort uin
 		basePortCtl.mutex.Unlock()
 	}()
 
-	var req Request
-	err = json.NewDecoder(conn).Decode(&req)
-	if err != nil {
-		fmt.Println("Error decoding request:", err)
-		return
-	}
-
-	fmt.Printf("Received request: %v\n", req)
-
-	// Write the request to the tuple space
-	tuple := ts.MakeTuple(ts.S("REQ"), ts.S(req.BankAccount), ts.S(req.Password), ts.S(req.Requisition), ts.S(req.RequisitionData))
-	fmt.Printf("Writing tuple: %v\n", tuple)
-
-	// TODO: If error, return leader address to client
-	space.Write(tuple)
-
-	var resp goptional.Maybe[ts.Tuple]
-	var respData Response
-
 	for {
-		resp, err := space.Get(ts.MakeTuple(ts.S("RES"), ts.S(req.BankAccount), ts.Any()))
+		var req Request
+		err = json.NewDecoder(conn).Decode(&req)
 		if err != nil {
-			fmt.Println("Error getting response:", err)
-		}
-
-		if resp.IsPresent() {
-			fmt.Printf("Got response: %s\n", resp)
-			respData = Response{
-				BankAccount: resp.Get().GetElements()[1].String(),
-				Message:     resp.Get().GetElements()[2].String(),
-			}
+			fmt.Println("Error decoding request:", err)
 			break
 		}
-	}
 
-	responseData, err := json.Marshal(respData)
-	if err != nil {
-		fmt.Println("Error encoding response:", err)
-		return
-	}
+		fmt.Printf("Received request: %v\n", req)
 
-	_, err = conn.Write(responseData)
-	if err != nil {
-		fmt.Println("Error sending response:", err)
-	}
+		// Write the request to the tuple space
+		tuple := ts.MakeTuple(ts.S("REQ"), ts.S(req.BankAccount), ts.S(req.Password), ts.S(req.Requisition), ts.S(req.RequisitionData))
+		fmt.Printf("Writing tuple: %v\n", tuple)
 
-	fmt.Printf("Sent response: %s\n", resp)
+		space.Write(tuple)
+
+		var resp goptional.Maybe[ts.Tuple]
+		var respData Response
+
+		for {
+			resp, err := space.Get(ts.MakeTuple(ts.S("RES"), ts.S(req.BankAccount), ts.Any()))
+			if err != nil {
+				fmt.Println("Error getting response:", err)
+			}
+
+			if resp.IsPresent() {
+				fmt.Printf("Got response: %s\n", resp)
+				respData = Response{
+					BankAccount: resp.Get().GetElements()[1].String(),
+					Message:     resp.Get().GetElements()[2].String(),
+				}
+				break
+			}
+		}
+
+		responseData, err := json.Marshal(respData)
+		if err != nil {
+			fmt.Println("Error encoding response:", err)
+			return
+		}
+
+		_, err = conn.Write(responseData)
+		if err != nil {
+			fmt.Println("Error sending response:", err)
+		}
+
+		fmt.Printf("Sent response: %s\n", resp)
+	}
 }

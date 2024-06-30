@@ -213,6 +213,10 @@ func (s *Store) GetLeaderAddr() string {
 	return string(addr)
 }
 
+func (s *Store) IsLeader() bool {
+	return s.raft.State() == raft.Leader
+}
+
 type fsm Store
 
 // Apply applies a Raft log entry to the tuple space store.

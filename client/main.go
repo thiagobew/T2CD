@@ -4,9 +4,11 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net"
 	"os"
+
 	"strings"
 	"time"
 )
@@ -33,11 +35,124 @@ func printCommands() {
 	fmt.Println("  <bankAccount> <password> balance")
 }
 
-// TODO: refactor connect logic into a function
+func exponentialBackoff(retries uint) time.Duration {
+	return time.Duration(1<<retries) * time.Millisecond
+}
+
+func tryConnect(address string, port uint16, retries int) (net.Conn, error) {
+	var conn net.Conn
+	var err error
+	for i := 0; i < retries; i++ {
+		conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", address, port))
+		if err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	return conn, err
+}
+
+func findServer(startAddress string, startPort uint16, tries uint) (net.Conn, uint16, error) {
+	port := startPort
+	var conn net.Conn
+	var err error
+	for {
+		conn, err = tryConnect(startAddress, port, 3)
+		if err == nil {
+			break
+		}
+		port += 100
+	}
+
+	// Write to the server to inform a request
+	info := JSONConnectionInfo{
+		MesType:  "request",
+		NodeAddr: "",
+		NodeID:   "",
+	}
+	b, err := json.Marshal(info)
+	if err != nil {
+		conn.Close()
+		return nil, 0, err
+	}
+	conn.Write(b)
+
+	var response map[string]interface{}
+
+	err = json.NewDecoder(conn).Decode(&response)
+	if err != nil {
+		conn.Close()
+		return nil, 0, err
+	}
+
+	addr := response["addr"].(string)
+	isLeader := response["leader"].(bool)
+
+	if !isLeader {
+		conn.Close()
+
+		if addr == "" {
+			fmt.Printf("No leader found, timeout and try again\n")
+			time.Sleep(exponentialBackoff(tries))
+			return findServer(startAddress, startPort, tries+1)
+		}
+
+		fmt.Printf("Redirected to %s\n", addr)
+		// Strip port from address
+		addr = strings.Split(addr, ":")[0]
+
+		portToAsk := startPort
+		if addr == startAddress {
+			portToAsk = portToAsk + 100
+		}
+
+		return findServer(addr, portToAsk, tries)
+	}
+
+	// Read the new port from the server
+	var portBuf [2]byte
+	_, err = conn.Read(portBuf[:])
+	if err != nil {
+		fmt.Println("Error reading new port:", err)
+		conn.Close()
+		return nil, 0, err
+	}
+	conn.Close()
+
+	var newPort uint16 = uint16(portBuf[1])<<8 | uint16(portBuf[0])
+
+	// Connect to the server on the new port
+	var newConn net.Conn
+	newConn, err = tryConnect(startAddress, newPort, 3)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return newConn, newPort, nil
+}
+
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-	// TODO: get start port and address from command line
-	var serverPort uint16 = 11000
+	var serverPort uint16
+	// Get address and port from command line
+	var address string
+	var port uint
+
+	flag.StringVar(&address, "address", "localhost", "Server address")
+	flag.UintVar(&port, "port", 11000, "Server port")
+	flag.Parse()
+
+	serverPort = uint16(port)
+
+	// Connect to the server
+	conn, newPort, err := findServer(address, serverPort, 0)
+	if err != nil {
+		fmt.Println("Error connecting to server:", err)
+		return
+	}
+
+	fmt.Printf("Connected to %s:%d\n", address, newPort)
 
 	for {
 		printCommands()
@@ -66,93 +181,36 @@ func main() {
 			RequisitionData: requisitionData,
 		}
 
-		// Connect to the server on the initial port
-		var conn net.Conn
-		var err error
-		for {
-			for i := 0; i < 5; i++ {
-				conn, err = net.Dial("tcp", fmt.Sprintf("localhost:%d", serverPort))
-				if err == nil {
-					break
-				}
-				fmt.Println("Error connecting to server:", err)
-				time.Sleep(1 * time.Second)
-			}
-			if err == nil {
-				break
-			}
-
-			serverPort += 100
-		}
-
-		// Write to the server to inform a request
-		info := JSONConnectionInfo{
-			MesType:  "request",
-			NodeAddr: "",
-			NodeID:   "",
-		}
-		b, err := json.Marshal(info)
-		if err != nil {
-			fmt.Println("Error encoding JSON:", err)
-			conn.Close()
-			continue
-		}
-		conn.Write(b)
-
-		// Read the new port from the server
-		// TODO: implement with JSON like { "port": uint16, "addr": string, "leader": bool }
-		// If leader is true, then the client can send the request to the server
-		// If leader is false, then the client must repeat the connection process with the leader
-		// TODO: treat case when there's no leader (sleep with exponential backoff and retry?)
-		var portBuf [2]byte
-		_, err = conn.Read(portBuf[:])
-		if err != nil {
-			fmt.Println("Error reading new port:", err)
-			conn.Close()
-			continue
-		}
-		conn.Close()
-
-		var newPort uint16 = uint16(portBuf[1])<<8 | uint16(portBuf[0])
-
-		// Connect to the server on the new port
-		var newConn net.Conn
-		for {
-			newConn, err = net.Dial("tcp", fmt.Sprintf("localhost:%d", newPort))
-			fmt.Printf("Connecting to localhost:%d\n", newPort)
-			if err == nil {
-				break
-			}
-			time.Sleep(300 * time.Millisecond)
-		}
-
 		// Send the request
-		err = json.NewEncoder(newConn).Encode(req)
+		err = json.NewEncoder(conn).Encode(req)
 		if err != nil {
 			fmt.Println("Error sending request:", err)
-			newConn.Close()
+			conn.Close()
 			continue
 		}
 
 		// Read the response
 		var resp map[string]interface{}
-		err = json.NewDecoder(newConn).Decode(&resp)
+		err = json.NewDecoder(conn).Decode(&resp)
 		if err != nil {
-			fmt.Println("Error reading response:", err)
-			newConn.Close()
+			conn.Close()
+			if err.Error() == "EOF" {
+				fmt.Println("Reconnecting to server")
+				conn, newPort, err = findServer(address, serverPort, 0)
+				if err != nil {
+					fmt.Println("Error reconnecting to server:", err)
+					return
+				}
+				fmt.Printf("Connected to %s:%d. Repeat the request, please.\n", address, newPort)
+
+			}
+
 			continue
 		}
 
-		newConn.Close()
-
-		// TODO: check if response didn't return an error
-		// If it did, get leader address, connect to him, and repeat the request
-		fmt.Println("Response:", resp)
+		fmt.Println("Response:")
+		for k, v := range resp {
+			fmt.Printf("  %s: %v\n", k, v)
+		}
 	}
 }
-
-// Example usage of the client once everything is running:
-// Enter command: 1234 pass create
-// Enter command: 1234 pass deposit 100
-// Enter command: 1234 pass withdraw 50
-// Enter command: 1234 pass delete
